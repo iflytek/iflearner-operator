@@ -1,0 +1,23 @@
+apiVersion: git.iflytek.com/v1
+kind: IflearnerJob
+metadata:
+  name: iflearnerjob-client2
+spec:
+  schedulername: aaa
+  role: client
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - image: iflearner:0.1.1   
+        name: iflearnerjob-client
+        imagePullPolicy: IfNotPresent
+        workingDir: /iflearner/examples/homo/quickstart_tensorflow
+        args:         
+        - python
+        - -u
+        - quickstart_tensorflow.py
+        - --name=test
+        - --epochs=10
+        - --server=c2.server.iflearner.com:30031
+        - --cert=/etc/server-iflearner-secret.crt

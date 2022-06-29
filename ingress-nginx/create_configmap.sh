@@ -1,0 +1,1 @@
+kubectl create configmap server-iflearner-crt --from-file=server-iflearner-secret.crt

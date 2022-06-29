@@ -1,0 +1,20 @@
+apiVersion: git.iflytek.com/v1
+kind: IflearnerJob
+metadata:
+  name: iflearnerjob-server2
+spec:
+  role: server
+  host: c2.server.iflearner.com
+  template:
+    spec:
+      containers:
+      - image: iflearner:0.1.1   
+        name: iflearnerjob-server2
+        imagePullPolicy: IfNotPresent
+        args:
+        - python 
+        - iflearner/business/homo/aggregate_server.py 
+        - -n=1 
+        - --addr=0.0.0.0:50051
+        ports:
+        - containerPort: 50051

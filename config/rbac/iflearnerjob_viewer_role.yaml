@@ -1,0 +1,20 @@
+# permissions for end users to view iflearnerjobs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: iflearnerjob-viewer-role
+rules:
+- apiGroups:
+  - git.iflytek.com
+  resources:
+  - iflearnerjobs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - git.iflytek.com
+  resources:
+  - iflearnerjobs/status
+  verbs:
+  - get

@@ -1,0 +1,15 @@
+domain: git.iflytek.com
+layout:
+- go.kubebuilder.io/v3
+projectName: iflearner-operator
+repo: git.iflytek.com/iflearner-opeartor
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: git.iflytek.com
+  kind: IflearnerJob
+  path: git.iflytek.com/iflearner-opeartor/api/v1
+  version: v1
+version: "3"
