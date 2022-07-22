@@ -41,7 +41,7 @@ type IflearnerJobSpec struct {
 
 // IflearnerJobStatus defines the observed state of IflearnerJob
 type IflearnerJobStatus struct {
-	corev1.PodStatus `json:",inline"`
+	*corev1.PodStatus `json:",inline"`
 }
 
 //+kubebuilder:object:root=true

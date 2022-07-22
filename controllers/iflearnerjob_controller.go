@@ -18,8 +18,6 @@ package controllers
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -45,13 +43,15 @@ var (
 	apiGVStr = gitiflytekcomv1.GroupVersion.String()
 	labelApp = "app"
 
-	podOwnerKey         = ".metadata.controller"
-	podServerPort int32 = 50051
+	podOwnerKey       = ".metadata.controller"
+	podGrpcPort int32 = 50001
+	podHttpPort int32 = 50002
 
 	configmapName = "server-iflearner-crt"
 	configmapFile = "server-iflearner-secret.crt"
 
-	servicePort int32 = 80
+	serviceGrpcPort int32 = 80
+	serviceHttpPort int32 = 82
 
 	// ingressHost        = ".server.iflearner.com"
 	ingressSecretName  = "server-iflearner-secret"
@@ -66,6 +66,8 @@ var (
 //+kubebuilder:rbac:groups=git.iflytek.com,resources=iflearnerjobs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=git.iflytek.com,resources=iflearnerjobs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=git.iflytek.com,resources=iflearnerjobs/finalizers,verbs=update
+//+kubebuilder:rbac:groups="",resources=configmaps;pods;services;endpoints;persistentvolumeclaims;events,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="extensions",resources=ingresses,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -96,7 +98,8 @@ func (r *IflearnerJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 
 	log.Info("list pods", "num", len(pods.Items))
 	if len(pods.Items) == 0 {
-		name := fmt.Sprintf("%s-%d", iflearnerJob.Name, time.Now().Unix())
+		// name := fmt.Sprintf("%s-%d", iflearnerJob.Name, time.Now().Unix())
+		name := iflearnerJob.Name
 
 		log.Info("create pod")
 		pod, err := constructPodForIflearnerJob(&iflearnerJob, r.Scheme, name)
@@ -134,6 +137,14 @@ func (r *IflearnerJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				log.Error(err, "unable to create Ingress for IflearnerJob", "ingress", svc)
 				return ctrl.Result{}, err
 			}
+		}
+	} else {
+		log.Info("update status", "status", pods.Items[0].Status)
+		pods.Items[0].Status.Conditions = make([]corev1.PodCondition, 0)
+		iflearnerJob.Status.PodStatus = pods.Items[0].Status.DeepCopy()
+		if err := r.Status().Update(ctx, &iflearnerJob); err != nil {
+			log.Error(err, "unable to update status for IflearnerJob")
+			return ctrl.Result{}, err
 		}
 	}
 	return ctrl.Result{}, nil
@@ -219,10 +230,17 @@ func constructServiceForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
-				corev1.ServicePort{
-					Port:       servicePort,
+				{
+					Name:       "grpc",
+					Port:       serviceGrpcPort,
 					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(int(podServerPort)),
+					TargetPort: intstr.FromInt(int(podGrpcPort)),
+				},
+				{
+					Name:       "http",
+					Port:       serviceHttpPort,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromInt(int(podHttpPort)),
 				},
 			},
 			Selector: map[string]string{
@@ -249,25 +267,27 @@ func constructIngressForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob,
 			Namespace:   iflearnerJob.Namespace,
 		},
 		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{v1beta1.IngressRule{
-				Host: iflearnerJob.Spec.Host,
-				IngressRuleValue: v1beta1.IngressRuleValue{
-					HTTP: &v1beta1.HTTPIngressRuleValue{
-						Paths: []v1beta1.HTTPIngressPath{
-							v1beta1.HTTPIngressPath{
-								Path:     "/",
-								PathType: &pathType,
-								Backend: v1beta1.IngressBackend{
-									ServiceName: name,
-									ServicePort: intstr.FromInt(int(servicePort)),
+			Rules: []v1beta1.IngressRule{
+				{
+					Host: iflearnerJob.Spec.Host,
+					IngressRuleValue: v1beta1.IngressRuleValue{
+						HTTP: &v1beta1.HTTPIngressRuleValue{
+							Paths: []v1beta1.HTTPIngressPath{
+								{
+									Path:     "/",
+									PathType: &pathType,
+									Backend: v1beta1.IngressBackend{
+										ServiceName: name,
+										ServicePort: intstr.FromInt(int(serviceGrpcPort)),
+									},
 								},
 							},
 						},
 					},
 				},
-			}},
+			},
 			TLS: []v1beta1.IngressTLS{
-				v1beta1.IngressTLS{
+				{
 					Hosts:      []string{iflearnerJob.Spec.Host},
 					SecretName: ingressSecretName,
 				},
