@@ -1,8 +1,13 @@
 # iflearner-operator
-// TODO(user): Add simple overview of use/purpose
+Iflearner-operator is the controller of the kubernetes IflearnerJob crd.
 
 ## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+
+As you known, horizontal federated learning has two roles, party and server. Iflearner-operator can create different kubernetes objects based on roles, involving ingress, service and pod. The relationships is as follows:
+
+![iflearner-operator](./doc/image/iflearner-operator.png)
+
+Between the parties and the server, we communicate using the grpc protocol and use SSL. All traffic will go to the server ingress, which will route traffic to different services based on the subdomain name. The aggregator behind the service will handle the traffic with business logic.
 
 ## Getting Started
 You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
