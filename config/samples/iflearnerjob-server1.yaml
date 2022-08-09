@@ -4,17 +4,20 @@ metadata:
   name: iflearnerjob-server1
 spec:
   role: server
-  host: c1.server.iflearner.com
+  host: s1.server.iflearner.com
   template:
     spec:
       containers:
-      - image: iflearner:0.1.1   
+      - image: iflearner:0.1.3   
         name: iflearnerjob-server1
         imagePullPolicy: IfNotPresent
         args:
-        - python 
-        - iflearner/business/homo/aggregate_server.py 
-        - -n=1 
-        - --addr=0.0.0.0:50051
-        ports:
-        - containerPort: 50051
+        - sleep
+        - 1d
+        
+        # - python 
+        # - iflearner/business/homo/aggregate_server.py 
+        # - -n=1 
+        # - --addr=0.0.0.0:50051
+        # ports:
+        # - containerPort: 50051

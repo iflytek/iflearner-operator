@@ -6,5 +6,8 @@ echo "create controller"
 cd config/manager && ../../bin/kustomize edit set image controller=iflearner-operator:0.1.0
 cd ../.. && bin/kustomize build config/default | kubectl apply -f -
 
-echo "create cert configmap"
+echo "create server cert configmap"
 kubectl create configmap server-iflearner-crt --from-file=ingress-nginx/server-iflearner-secret.crt
+
+echo "create party cert configmap"
+kubectl create configmap party-iflearner-crt --from-file=ingress-nginx/party-iflearner-secret.crt

@@ -1,0 +1,1 @@
+kubectl create configmap party-iflearner-crt --from-file=party-iflearner-secret.crt

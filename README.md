@@ -1,9 +1,9 @@
-# iflearner-operator
+# Iflearner-Operator
 Iflearner-operator is the controller of the kubernetes IflearnerJob crd.
 
 ## Description
 
-As you known, horizontal federated learning has two roles, party and server. Iflearner-operator can create different kubernetes objects based on roles, involving ingress, service and pod. The relationships is as follows:
+As you known, horizontal federated learning has two roles, party and server. Iflearner-operator can create different kubernetes objects based on roles, involving ingress, service and pod. The relationship is as follows:
 
 ![iflearner-operator](./doc/image/iflearner-operator.png)
 

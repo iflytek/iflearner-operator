@@ -47,15 +47,18 @@ var (
 	podGrpcPort int32 = 50001
 	podHttpPort int32 = 50002
 
-	configmapName = "server-iflearner-crt"
-	configmapFile = "server-iflearner-secret.crt"
+	serverConfigmapName = "server-iflearner-crt"
+	serverConfigmapFile = "server-iflearner-secret.crt"
+
+	partyConfigmapName = "party-iflearner-crt"
+	partyConfigmapFile = "party-iflearner-secret.crt"
 
 	serviceGrpcPort int32 = 80
 	serviceHttpPort int32 = 82
 
-	// ingressHost        = ".server.iflearner.com"
-	ingressSecretName  = "server-iflearner-secret"
-	ingressAnnotations = map[string]string{
+	serverIngressSecretName = "server-iflearner-secret"
+	partyIngressSecretName  = "party-iflearner-secret"
+	ingressAnnotations      = map[string]string{
 		"kubernetes.io/ingress.class":                  "nginx",
 		"nginx.ingress.kubernetes.io/ssl-redirect":     "true",
 		"nginx.ingress.kubernetes.io/backend-protocol": "GRPC",
@@ -113,30 +116,28 @@ func (r *IflearnerJobReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return ctrl.Result{}, err
 		}
 
-		if iflearnerJob.Spec.Role == gitiflytekcomv1.RoleServer {
-			log.Info("create service")
-			svc, err := constructServiceForIflearnerJob(&iflearnerJob, r.Scheme, name)
-			if err != nil {
-				log.Error(err, "unable to construct Service for IflearnerJob")
-				return ctrl.Result{}, err
-			}
+		log.Info("create service")
+		svc, err := constructServiceForIflearnerJob(&iflearnerJob, r.Scheme, name)
+		if err != nil {
+			log.Error(err, "unable to construct Service for IflearnerJob")
+			return ctrl.Result{}, err
+		}
 
-			if err := r.Create(ctx, svc); err != nil {
-				log.Error(err, "unable to create Service for IflearnerJob", "service", svc)
-				return ctrl.Result{}, err
-			}
+		if err := r.Create(ctx, svc); err != nil {
+			log.Error(err, "unable to create Service for IflearnerJob", "service", svc)
+			return ctrl.Result{}, err
+		}
 
-			log.Info("create ingress")
-			ingress, err := constructIngressForIflearnerJob(&iflearnerJob, r.Scheme, name)
-			if err != nil {
-				log.Error(err, "unable to construct Ingress for IflearnerJob")
-				return ctrl.Result{}, err
-			}
+		log.Info("create ingress")
+		ingress, err := constructIngressForIflearnerJob(&iflearnerJob, r.Scheme, name)
+		if err != nil {
+			log.Error(err, "unable to construct Ingress for IflearnerJob")
+			return ctrl.Result{}, err
+		}
 
-			if err := r.Create(ctx, ingress); err != nil {
-				log.Error(err, "unable to create Ingress for IflearnerJob", "ingress", svc)
-				return ctrl.Result{}, err
-			}
+		if err := r.Create(ctx, ingress); err != nil {
+			log.Error(err, "unable to create Ingress for IflearnerJob", "ingress", svc)
+			return ctrl.Result{}, err
 		}
 	} else {
 		log.Info("update status", "status", pods.Items[0].Status)
@@ -196,16 +197,31 @@ func constructPodForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob, sch
 	}
 	if iflearnerJob.Spec.Role == gitiflytekcomv1.RoleClient {
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
-			Name:      configmapName,
-			MountPath: "/etc/" + configmapFile,
-			SubPath:   configmapFile,
+			Name:      serverConfigmapName,
+			MountPath: "/etc/" + serverConfigmapFile,
+			SubPath:   serverConfigmapFile,
 			ReadOnly:  true,
 		})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
-			Name: configmapName,
+			Name: serverConfigmapName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: configmapName},
+					LocalObjectReference: corev1.LocalObjectReference{Name: serverConfigmapName},
+				},
+			},
+		})
+
+		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      partyConfigmapName,
+			MountPath: "/etc/" + partyConfigmapFile,
+			SubPath:   partyConfigmapFile,
+			ReadOnly:  true,
+		})
+		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+			Name: partyConfigmapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: partyConfigmapName},
 				},
 			},
 		})
@@ -219,6 +235,23 @@ func constructPodForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob, sch
 }
 
 func constructServiceForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob, scheme *runtime.Scheme, name string) (*corev1.Service, error) {
+	ports := []corev1.ServicePort{
+		{
+			Name:       "grpc",
+			Port:       serviceGrpcPort,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(int(podGrpcPort)),
+		},
+	}
+	if iflearnerJob.Spec.Role == gitiflytekcomv1.RoleServer {
+		ports = append(ports, corev1.ServicePort{
+			Name:       "http",
+			Port:       serviceHttpPort,
+			Protocol:   corev1.ProtocolTCP,
+			TargetPort: intstr.FromInt(int(podHttpPort)),
+		})
+	}
+
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
@@ -229,20 +262,7 @@ func constructServiceForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob,
 			Namespace:   iflearnerJob.Namespace,
 		},
 		Spec: corev1.ServiceSpec{
-			Ports: []corev1.ServicePort{
-				{
-					Name:       "grpc",
-					Port:       serviceGrpcPort,
-					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(int(podGrpcPort)),
-				},
-				{
-					Name:       "http",
-					Port:       serviceHttpPort,
-					Protocol:   corev1.ProtocolTCP,
-					TargetPort: intstr.FromInt(int(podHttpPort)),
-				},
-			},
+			Ports: ports,
 			Selector: map[string]string{
 				labelApp: name,
 			},
@@ -258,6 +278,19 @@ func constructServiceForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob,
 }
 
 func constructIngressForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob, scheme *runtime.Scheme, name string) (*v1beta1.Ingress, error) {
+	tls := make([]v1beta1.IngressTLS, 0)
+	if iflearnerJob.Spec.Role == gitiflytekcomv1.RoleServer {
+		tls = append(tls, v1beta1.IngressTLS{
+			Hosts:      []string{iflearnerJob.Spec.Host},
+			SecretName: serverIngressSecretName,
+		})
+	} else {
+		tls = append(tls, v1beta1.IngressTLS{
+			Hosts:      []string{iflearnerJob.Spec.Host},
+			SecretName: partyIngressSecretName,
+		})
+	}
+
 	pathType := v1beta1.PathTypePrefix
 	ingress := &v1beta1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -286,12 +319,7 @@ func constructIngressForIflearnerJob(iflearnerJob *gitiflytekcomv1.IflearnerJob,
 					},
 				},
 			},
-			TLS: []v1beta1.IngressTLS{
-				{
-					Hosts:      []string{iflearnerJob.Spec.Host},
-					SecretName: ingressSecretName,
-				},
-			},
+			TLS: tls,
 		},
 	}
 

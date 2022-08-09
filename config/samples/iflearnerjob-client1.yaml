@@ -3,21 +3,24 @@ kind: IflearnerJob
 metadata:
   name: iflearnerjob-client1
 spec:
-  schedulername: aaa
   role: client
+  host: c1.party.iflearner.com
   template:
     spec:
       restartPolicy: Never
       containers:
-      - image: iflearner:0.1.1   
+      - image: iflearner:0.1.3   
         name: iflearnerjob-client
         imagePullPolicy: IfNotPresent
         workingDir: /iflearner/examples/homo/quickstart_pytorch
-        args:         
-        - python
-        - -u
-        - quickstart_pytorch.py   
-        - --name=test
-        - --epochs=10
-        - --server=c1.server.iflearner.com:30031
-        - --cert=/etc/server-iflearner-secret.crt
+        args:
+        - sleep
+        - 1d
+
+        # - python
+        # - -u
+        # - quickstart_pytorch.py   
+        # - --name=test
+        # - --epochs=10
+        # - --server=s1.server.iflearner.com:30031
+        # - --cert=/etc/server-iflearner-secret.crt
