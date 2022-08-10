@@ -9,91 +9,124 @@ As you known, horizontal federated learning has two roles, party and server. Ifl
 
 Between the parties and the server, we communicate using the grpc protocol and use SSL. All traffic will go to the server ingress, which will route traffic to different services based on the subdomain name. The aggregator behind the service will handle the traffic with business logic.
 
+Between parties, we also use the same means of communication to transfer data. Of course, this is an option and the communication between parties can be ignored if not required.
+
 ## Getting Started
-You’ll need a Kubernetes cluster to run against. You can use [KIND](https://sigs.k8s.io/kind) to get a local cluster for testing, or run against a remote cluster.
-**Note:** Your controller will automatically use the current context in your kubeconfig file (i.e. whatever cluster `kubectl cluster-info` shows).
+You need a Kubernetes cluster to run, and iflearner-operator relies on [ingress-nginx](https://github.com/kubernetes/ingress-nginx) to implement ingress. So you need to install [ingress-nginx](https://github.com/kubernetes/ingress-nginx) before starting.
 
-### Running on the cluster
-1. Install Instances of Custom Resources:
+### Install ingress-nginx
+You can follow the [Official Installation Guide](https://kubernetes.github.io/ingress-nginx/deploy/) to install [ingress-nginx](https://github.com/kubernetes/ingress-nginx).
 
-```sh
-kubectl apply -f config/samples/
-```
-
-2. Build and push your image to the location specified by `IMG`:
-	
-```sh
-make docker-build docker-push IMG=<some-registry>/iflearner-operator:tag
-```
-	
-3. Deploy the controller to the cluster with the image specified by `IMG`:
+You can also install [ingress-nginx](https://github.com/kubernetes/ingress-nginx) as follows:
 
 ```sh
-make deploy IMG=<some-registry>/iflearner-operator:tag
+kubectl create -f ingress-nginx/deploy.yaml
 ```
 
-### Uninstall CRDs
-To delete the CRDs from the cluster:
+### Install CRD
+You can install CRD as follows:
 
 ```sh
-make uninstall
+bin/kustomize build config/crd | kubectl apply -f -
 ```
 
-### Undeploy controller
-UnDeploy the controller to the cluster:
+### Install controller
+You can install controller as follows:
 
 ```sh
-make undeploy
+cd config/manager && ../../bin/kustomize edit set image controller=iflearner-operator:0.1.0
+cd ../.. && bin/kustomize build config/default | kubectl apply -f -
 ```
 
-## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
-
-### How it works
-This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
-
-It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/) 
-which provides a reconcile function responsible for synchronizing resources untile the desired state is reached on the cluster 
-
-### Test It Out
-1. Install the CRDs into the cluster:
+### Create secret
+We expose ingress with TLS, so we need certificate and you can create secret as follows:
 
 ```sh
-make install
+kubectl create secret tls server-iflearner-secret --key server-iflearner-secret.key --cert server-iflearner-secret.crt 
+kubectl create secret tls party-iflearner-secret --key party-iflearner-secret.key --cert party-iflearner-secret.crt 
 ```
 
-2. Run your controller (this will run in the foreground, so switch to a new terminal if you want to leave it running):
+### Create configmap
+We need a certificate to connect to the ingress, so we mount the configmap into the certificate file, you can create the secret as follows:
 
 ```sh
-make run
+kubectl create configmap server-iflearner-crt --from-file=ingress-nginx/server-iflearner-secret.crt
+kubectl create configmap party-iflearner-crt --from-file=ingress-nginx/party-iflearner-secret.crt
 ```
 
-**NOTE:** You can also run this in one step by running: `make install run`
+### Configure DNS
+We use domain names to connect to ingress, so you need to configure your Kubernetes DNS. If you are using the coredns component, you can configure as follows:
 
-### Modifying the API definitions
-If you are editing the API definitions, generate the manifests such as CRs or CRDs using:
+Firstly, you need to enter edit mode.
 
 ```sh
-make manifests
+kubectl -n kube-system edit configmap/coredns
 ```
 
-**NOTE:** Run `make --help` for more information on all potential `make` targets
+Then, you need to add some template configurations. The sever uses the domain name ***server.iflearner.com*** and the party uses the domain name ****.party.iflearner.com***.
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+```sh
+data:
+  Corefile: |
+    .:53 {
+        errors
+        health {
+           lameduck 5s
+        }
+        ready
+        kubernetes cluster.local in-addr.arpa ip6.arpa {
+           pods insecure
+           fallthrough in-addr.arpa ip6.arpa
+           ttl 30
+        }
+        prometheus :9153
+        forward . /etc/resolv.conf
+        cache 30
+        loop
+        reload
+        loadbalance
+        template IN A server.iflearner.com {
+            match .*\.server\.iflearner\.com
+            answer "{{ .Name }} 60 IN A 172.31.164.52"
+            fallthrough
+        }
+        template IN A a.party.iflearner.com {
+            match .*\.a\.party\.iflearner\.com
+            answer "{{ .Name }} 60 IN A 172.31.164.53"
+            fallthrough
+        }
+        template IN A b.party.iflearner.com {
+            match .*\.b\.party\.iflearner\.com
+            answer "{{ .Name }} 60 IN A 172.31.164.54"
+            fallthrough
+        }
+    }
+```
 
-## License
+> Note: The real ip depends on your environment.
 
-Copyright 2022.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Finally, restart the coredns to make the configuration take effect.
 
-    http://www.apache.org/licenses/LICENSE-2.0
+```sh
+kubectl -n kube-system rollout restart deployment coredns
+```
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+## Uninstall
+You can uninstall everything as follows:
 
+```sh
+# delete configmap
+kubectl delete configmap party-iflearner-crt
+kubectl delete configmap server-iflearner-crt
+
+# delete secret
+kubectl delete secret party-iflearner-secret
+kubectl delete secret server-iflearner-secret
+
+# delete controller
+bin/kustomize build config/default | kubectl delete --ignore-not-found=true -f -
+
+# delete crd
+bin/kustomize build config/crd | kubectl delete --ignore-not-found=true -f -
+```
