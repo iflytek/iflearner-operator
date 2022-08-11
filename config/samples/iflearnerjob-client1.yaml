@@ -4,7 +4,7 @@ metadata:
   name: iflearnerjob-client1
 spec:
   role: client
-  host: c1.party.iflearner.com
+  host: job1.a.party.iflearner.com
   template:
     spec:
       restartPolicy: Never

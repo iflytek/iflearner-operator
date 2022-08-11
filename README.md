@@ -38,22 +38,6 @@ cd config/manager && ../../bin/kustomize edit set image controller=iflearner-ope
 cd ../.. && bin/kustomize build config/default | kubectl apply -f -
 ```
 
-### Create secret
-We expose ingress with TLS, so we need certificate and you can create secret as follows:
-
-```sh
-kubectl create secret tls server-iflearner-secret --key server-iflearner-secret.key --cert server-iflearner-secret.crt 
-kubectl create secret tls party-iflearner-secret --key party-iflearner-secret.key --cert party-iflearner-secret.crt 
-```
-
-### Create configmap
-We need a certificate to connect to the ingress, so we mount the configmap into the certificate file, you can create the secret as follows:
-
-```sh
-kubectl create configmap server-iflearner-crt --from-file=ingress-nginx/server-iflearner-secret.crt
-kubectl create configmap party-iflearner-crt --from-file=ingress-nginx/party-iflearner-secret.crt
-```
-
 ### Configure DNS
 We use domain names to connect to ingress, so you need to configure your Kubernetes DNS. If you are using the coredns component, you can configure as follows:
 
@@ -111,6 +95,46 @@ Finally, restart the coredns to make the configuration take effect.
 ```sh
 kubectl -n kube-system rollout restart deployment coredns
 ```
+
+### Generate certificate
+After configuring DNS, you need to generate certificates for those domains.
+
+1. generate server certificate
+
+    ```sh
+    openssl req -newkey rsa:2048 -nodes -sha256 -keyout server-iflearner-secret.key -x509 -days 3650 -out server-iflearner-secret.crt -subj "/CN=*.server.iflearner.com"
+    ```
+
+2. generate party certificate
+
+    You need to edit the ***cert/party-san.cnf*** file and add DNS records according to your environment.
+
+    ```sh
+    openssl req  -nodes -newkey rsa:2048 -sha256 -keyout party-iflearner-secret.key -reqexts req_ext -out party-iflearner-secret.csr -subj "/CN=*.party.iflearner.com" -config party-san.cnf
+
+    openssl x509 -req -in party-iflearner-secret.csr -extfile party-san.cnf -extensions req_ext -signkey party-iflearner-secret.key -days 3650 -out party-iflearner-secret.crt
+    ```
+
+### Create secret
+We expose ingress with TLS, so we need certificate and you can create secret as follows:
+
+```sh
+# on server side
+kubectl create secret tls server-iflearner-secret --key server-iflearner-secret.key --cert server-iflearner-secret.crt
+
+# on party side
+kubectl create secret tls party-iflearner-secret --key party-iflearner-secret.key --cert party-iflearner-secret.crt 
+```
+
+### Create configmap (just on party side)
+We need a certificate to connect to the ingress, so we mount the configmap into the certificate file, you can create the secret as follows:
+
+```sh
+kubectl create configmap server-iflearner-crt --from-file=ingress-nginx/server-iflearner-secret.crt
+
+kubectl create configmap party-iflearner-crt --from-file=ingress-nginx/party-iflearner-secret.crt
+```
+
 
 ## Uninstall
 You can uninstall everything as follows:

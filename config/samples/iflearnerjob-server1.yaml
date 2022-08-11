@@ -4,7 +4,7 @@ metadata:
   name: iflearnerjob-server1
 spec:
   role: server
-  host: s1.server.iflearner.com
+  host: job1.server.iflearner.com
   template:
     spec:
       containers:
