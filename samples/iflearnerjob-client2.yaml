@@ -1,0 +1,26 @@
+apiVersion: git.iflytek.com/v1
+kind: IflearnerJob
+metadata:
+  name: iflearnerjob-client2
+spec:
+  role: client
+  host: job1.b.party.iflearner.com
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+        name: iflearnerjob-client
+        imagePullPolicy: IfNotPresent
+        workingDir: /iflearner/examples/homo/quickstart_pytorch
+        args:      
+        - python
+        - -u
+        - quickstart_pytorch.py   
+        - --name=client2
+        - --epochs=10
+        - --server=job1.server.iflearner.com:30031
+        - --cert=/etc/server-iflearner-secret.crt
+        - --peers=0.0.0.0:50001;job1.a.party.iflearner.com:30031
+        - --peer-cert=/etc/party-iflearner-secret.crt
+        

@@ -34,7 +34,7 @@ bin/kustomize build config/crd | kubectl apply -f -
 You can install controller as follows:
 
 ```sh
-cd config/manager && ../../bin/kustomize edit set image controller=iflearner-operator:0.1.0
+cd config/manager && ../../bin/kustomize edit set image controller=registry.turing.com:5000/iflearner/iflearner-operator:0.2.0
 cd ../.. && bin/kustomize build config/default | kubectl apply -f -
 ```
 
@@ -154,3 +154,89 @@ bin/kustomize build config/default | kubectl delete --ignore-not-found=true -f -
 # delete crd
 bin/kustomize build config/crd | kubectl delete --ignore-not-found=true -f -
 ```
+
+## How to use
+You can create a server and two parties as follows:
+
+* Server
+
+    ```sh
+    apiVersion: git.iflytek.com/v1
+    kind: IflearnerJob
+    metadata:
+    name: iflearnerjob-server
+    spec:
+    role: server
+    host: job1.server.iflearner.com
+    template:
+        spec:
+        containers:
+        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+            name: iflearnerjob-server
+            imagePullPolicy: IfNotPresent
+            args:
+            - python 
+            - iflearner/business/homo/aggregate_server.py 
+            - -n=2
+            - --epochs=10
+    ```
+
+* Party A
+
+    ```sh
+    apiVersion: git.iflytek.com/v1
+    kind: IflearnerJob
+    metadata:
+    name: iflearnerjob-client1
+    spec:
+    role: client
+    host: job1.a.party.iflearner.com
+    template:
+        spec:
+        restartPolicy: Never
+        containers:
+        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+            name: iflearnerjob-client
+            imagePullPolicy: IfNotPresent
+            workingDir: /iflearner/examples/homo/quickstart_pytorch
+            args:
+            - python
+            - -u
+            - quickstart_pytorch.py   
+            - --name=client1
+            - --epochs=10
+            - --server=job1.server.iflearner.com:30031
+            - --cert=/etc/server-iflearner-secret.crt
+            - --peers=0.0.0.0:50001;job1.b.party.iflearner.com:32322
+            - --peer-cert=/etc/party-iflearner-secret.crt
+    ```
+
+* Party B
+
+    ```sh
+    apiVersion: git.iflytek.com/v1
+    kind: IflearnerJob
+    metadata:
+    name: iflearnerjob-client2
+    spec:
+    role: client
+    host: job1.b.party.iflearner.com
+    template:
+        spec:
+        restartPolicy: Never
+        containers:
+        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+            name: iflearnerjob-client
+            imagePullPolicy: IfNotPresent
+            workingDir: /iflearner/examples/homo/quickstart_pytorch
+            args:      
+            - python
+            - -u
+            - quickstart_pytorch.py   
+            - --name=client2
+            - --epochs=10
+            - --server=job1.server.iflearner.com:30031
+            - --cert=/etc/server-iflearner-secret.crt
+            - --peers=0.0.0.0:50001;job1.a.party.iflearner.com:30031
+            - --peer-cert=/etc/party-iflearner-secret.crt
+    ```
