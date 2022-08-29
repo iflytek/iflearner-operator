@@ -34,7 +34,7 @@ bin/kustomize build config/crd | kubectl apply -f -
 You can install controller as follows:
 
 ```sh
-cd config/manager && ../../bin/kustomize edit set image controller=registry.turing.com:5000/iflearner/iflearner-operator:0.2.0
+cd config/manager && ../../bin/kustomize edit set image controller=ghcr.io/iflytek/iflearner-operator:0.2.0
 cd ../.. && bin/kustomize build config/default | kubectl apply -f -
 ```
 

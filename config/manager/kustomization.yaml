@@ -12,5 +12,5 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
 - name: controller
-  newName: registry.turing.com:5000/iflearner/iflearner-operator
+  newName: ghcr.io/iflytek/iflearner-operator
   newTag: 0.2.0
