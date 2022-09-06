@@ -8,7 +8,7 @@ spec:
   template:
     spec:
       containers:
-      - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+      - image: ghcr.io/iflytek/iflearner:v0.1.0
         name: iflearnerjob-server
         imagePullPolicy: IfNotPresent
         args:

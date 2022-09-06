@@ -171,7 +171,7 @@ You can create a server and two parties as follows:
     template:
         spec:
         containers:
-        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+        - image: ghcr.io/iflytek/iflearner:v0.1.0
             name: iflearnerjob-server
             imagePullPolicy: IfNotPresent
             args:
@@ -195,7 +195,7 @@ You can create a server and two parties as follows:
         spec:
         restartPolicy: Never
         containers:
-        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+        - image: ghcr.io/iflytek/iflearner:v0.1.0
             name: iflearnerjob-client
             imagePullPolicy: IfNotPresent
             workingDir: /iflearner/examples/homo/quickstart_pytorch
@@ -225,7 +225,7 @@ You can create a server and two parties as follows:
         spec:
         restartPolicy: Never
         containers:
-        - image: registry.turing.com:5000/iflearner/iflearner:0.1.4
+        - image: ghcr.io/iflytek/iflearner:v0.1.0
             name: iflearnerjob-client
             imagePullPolicy: IfNotPresent
             workingDir: /iflearner/examples/homo/quickstart_pytorch
